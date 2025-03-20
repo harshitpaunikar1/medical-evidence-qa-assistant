@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medical Evidence Q&amp;A Assistant | Safety Architecture Review</title>
+  <meta name="description" content="A black-and-white safety architecture review of a medical evidence Q&A assistant: risk boundary, source retrieval, answer assembly, and refusal design.">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --page: #f5f5f5;
+      --ink: #111111;
+      --muted: #5f5f5f;
+      --rule: #d7d7d7;
+      --soft: #ececec;
+      --strong: #0a0a0a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
+      color: var(--ink);
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      line-height: 1.72;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .page {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.8fr);
+      gap: 24px;
+      align-items: end;
+      border: 1px solid var(--rule);
+      background: rgba(255, 255, 255, 0.88);
+      padding: 28px;
+    }
+
+    .eyebrow,
+    .protocol-tag {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 12ch;
+      font-size: clamp(2.9rem, 7vw, 5.6rem);
+      line-height: 0.92;
+      letter-spacing: -0.04em;
+      text-transform: uppercase;
+    }
+
+    .deck {
+      max-width: 58rem;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .hero-note {
+      display: grid;
+      gap: 14px;
+      border-left: 4px solid var(--strong);
+      padding: 12px 0 12px 18px;
+    }
+
+    .hero-note h2 {
+      margin: 0;
+      font-size: 0.98rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .hero-note p,
+    .hero-note ul {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .hero-note ul {
+      padding-left: 18px;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .summary-card {
+      border: 1px solid var(--rule);
+      background: #ffffff;
+      padding: 14px;
+      min-height: 112px;
+    }
+
+    .summary-card strong {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .summary-card span {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+      gap: 28px;
+      margin-top: 28px;
+    }
+
+    .rail {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      display: grid;
+      gap: 12px;
+    }
+
+    .rail-card {
+      border: 1px solid var(--rule);
+      background: rgba(255, 255, 255, 0.9);
+      padding: 16px;
+    }
+
+    .rail-card h3 {
+      margin: 0 0 10px;
+      font-size: 0.84rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .rail-card p,
+    .rail-card li {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .rail-card ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .warning {
+      background: #0a0a0a;
+      color: #f5f5f5;
+      border-color: #0a0a0a;
+    }
+
+    .warning p,
+    .warning li,
+    .warning h3 {
+      color: #f5f5f5;
+    }
+
+    .article {
+      display: grid;
+      gap: 28px;
+    }
+
+    section {
+      border: 1px solid var(--rule);
+      background: rgba(255, 255, 255, 0.9);
+      padding: 30px;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 124px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(1.6rem, 3vw, 2.5rem);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      text-transform: uppercase;
+    }
+
+    p {
+      margin: 0 0 16px;
+      max-width: 74ch;
+      font-size: 1rem;
+    }
+
+    p:last-child,
+    ul:last-child,
+    ol:last-child,
+    figure:last-child,
+    pre:last-child {
+      margin-bottom: 0;
+    }
+
+    .lead {
+      font-size: 1.08rem;
+      color: var(--muted);
+    }
+
+    .callout {
+      margin: 22px 0;
+      padding: 18px;
+      border-left: 4px solid var(--strong);
+      background: var(--page);
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 0.86rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .callout p {
+      margin: 0;
+    }
+
+    figure {
+      margin: 28px 0;
+      border: 1px solid var(--rule);
+      background: #ffffff;
+      padding: 18px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    figcaption {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .figure-title {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--ink);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.78rem;
+    }
+
+    .code-block {
+      margin: 22px 0;
+      border: 1px solid var(--rule);
+      background: #0a0a0a;
+      color: #f5f5f5;
+      overflow-x: auto;
+    }
+
+    pre {
+      margin: 0;
+      padding: 16px 18px;
+      white-space: pre-wrap;
+      font: 0.92rem/1.62 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    ul,
+    ol {
+      margin: 0 0 16px;
+      padding-left: 20px;
+      max-width: 74ch;
+    }
+
+    li {
+      margin-bottom: 10px;
+    }
+
+    .closing-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 12px;
+    }
+
+    .closing-list li {
+      margin: 0;
+      padding: 14px 16px;
+      border: 1px solid var(--rule);
+      background: var(--page);
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    @media (max-width: 1080px) {
+      .hero,
+      .layout,
+      .section-head,
+      .summary-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        position: static;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .page {
+        padding: 16px 14px 40px;
+      }
+
+      .hero,
+      section {
+        padding: 20px;
+      }
+
+      h1 {
+        max-width: none;
+        font-size: 2.7rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Safety Architecture Review</p>
+        <h1>Medical Evidence Q&amp;A Assistant</h1>
+        <p class="deck">This page reviews a medical evidence question-answering assistant from the safety boundary inward. The available project description is modest and that is useful: it claims trusted-source retrieval from medical PDFs, guidelines, and PubMed-style references; PDF extraction, cleanup, chunking, embeddings, Qdrant indexing, reranking, constrained answer generation, explicit refusals, and FastAPI exposure. The review below stays inside those stated mechanics rather than treating the system like an already-audited clinical product.</p>
+        <div class="summary-strip" aria-label="Review summary">
+          <div class="summary-card">
+            <strong>Primary Position</strong>
+            <span>Education-focused assistant, not a diagnosis engine and not an open-ended medical chatbot.</span>
+          </div>
+          <div class="summary-card">
+            <strong>Safety Core</strong>
+            <span>Evidence retrieval and refusal logic carry more safety weight than the generation model itself.</span>
+          </div>
+          <div class="summary-card">
+            <strong>Failure Mode To Avoid</strong>
+            <span>Clean prose that outruns retrieved evidence or quietly substitutes model prior for source support.</span>
+          </div>
+          <div class="summary-card">
+            <strong>Review Basis</strong>
+            <span>Architecture-level claims from the project README, interpreted conservatively and without invented runtime metrics.</span>
+          </div>
+        </div>
+      </div>
+      <aside class="hero-note" aria-label="Review boundary">
+        <div>
+          <h2>Scope Of Review</h2>
+          <p>This is a design review of a stated system pattern. It is not a certification, not a clinical efficacy claim, and not evidence that the FastAPI surface or refusal policy has been independently tested in production.</p>
+        </div>
+        <div>
+          <h2>Why The Order Matters</h2>
+          <ul>
+            <li>Risk boundary first, because the rest of the stack is only acceptable inside a narrow mandate.</li>
+            <li>Retrieval second, because source control is the main defense against model improvisation.</li>
+            <li>Answer assembly third, because citation behavior is where grounded systems often drift.</li>
+            <li>Refusal last, because refusal is a product state, not an error screen.</li>
+          </ul>
+        </div>
+      </aside>
+    </header>
+
+    <div class="layout">
+      <aside class="rail" aria-label="Protocol rail">
+        <div class="rail-card">
+          <h3>Protocol Index</h3>
+          <p><a href="#boundary">01 Risk Boundary</a></p>
+          <p><a href="#retrieval">02 Source Selection &amp; Retrieval</a></p>
+          <p><a href="#assembly">03 Answer Assembly &amp; Citation Behavior</a></p>
+          <p><a href="#refusal">04 Refusal &amp; Escalation Cases</a></p>
+          <p><a href="#close">Operational Close</a></p>
+        </div>
+        <div class="rail-card warning">
+          <h3>Warning</h3>
+          <p>A medical assistant becomes dangerous fastest when it sounds confident after retrieval has already failed. Silence, uncertainty, and escalation must remain first-class outputs.</p>
+        </div>
+        <div class="rail-card">
+          <h3>Stated Components</h3>
+          <ul>
+            <li>Trusted medical PDFs, guidelines, and PubMed-style references</li>
+            <li>PyMuPDF extraction, cleanup, chunking, embeddings</li>
+            <li>Qdrant indexing with reranking before generation</li>
+            <li>Constrained answers from retrieved context only</li>
+            <li>FastAPI interface with refusal behavior as a feature</li>
+          </ul>
+        </div>
+      </aside>
+
+      <main class="article">
+        <section id="boundary">
+          <div class="section-head">
+            <div>
+              <p class="protocol-tag">Protocol 01</p>
+            </div>
+            <h2>Risk Boundary</h2>
+          </div>
+          <p class="lead">The strongest line in the project description is also the most important safety control: the assistant is designed as an education-focused system rather than a diagnosis engine. That sentence should not live in marketing copy alone. It has to shape what enters the system, what leaves the system, and which requests are declined before any answer drafting begins.</p>
+          <p>A medical evidence assistant should be treated as a constrained retrieval and synthesis surface over a limited corpus, not as a clinical thinker. The difference is practical. If a user asks for a summary of guideline recommendations, the system may be able to respond when evidence is retrieved, ranked, and cited. If the user asks whether their own symptoms indicate appendicitis, whether a dose should be changed, or whether a new lab result is safe to ignore, the safe design posture is no longer explanation. It is refusal or escalation. The assistant may still be useful in healthcare without crossing into medical decision authority, but only if the system boundary is narrow enough that operators can tell when it has been crossed.</p>
+          <p>The stated architecture supports that narrower posture. Trusted-source scope, retrieval before generation, and refusal behavior all suggest that the design is trying to prevent model free-association. Still, those mechanics are only effective if the product team treats them as binding rules rather than as guidelines that can be relaxed when recall looks low or users want more conversational answers. In high-stakes domains, permissive fallback behavior is often the real defect. The model is not unsafe because it can predict the next token. It becomes unsafe when the surrounding product invites it to do so after the evidence path has run dry.</p>
+          <div class="callout">
+            <strong>Boundary Rule</strong>
+            <p>If the system cannot anchor a response to retrieved, in-scope evidence, it should not switch to general model knowledge. The absence of support is itself a valid product outcome.</p>
+          </div>
+          <p>The boundary should also be explicit at the API level. FastAPI exposure is useful because it can enforce structured inputs and outputs instead of tolerating arbitrary prompt strings that smuggle clinical intent past the guardrails. A well-shaped request object can carry question text, requested task type, user role, and a safety route. That makes it easier to distinguish an evidence summary request from a personalized medical interpretation request before retrieval has even begun. It also makes audit review possible.</p>
+          <p>The boundary must cover language style as well as intent. An answer can be technically limited yet still sound like advice if it uses directive phrasing such as “you should take,” “this means you have,” or “it is safe to wait.” For an education-focused assistant, tone is not cosmetic. Tone is part of the control system. The safer pattern is explanatory language tied to source context: what the retrieved guideline says, what population it addresses, where evidence is uncertain, and why the assistant cannot apply that general statement to a specific person. That distinction protects against the common failure mode where a grounded answer remains factually sourced but is framed like clinical instruction.</p>
+          <div class="code-block">
+            <pre><code>{
+  "task": "evidence_summary",
+  "question": "What do current hypertension guidelines say about home BP monitoring?",
+  "user_context": {
+    "role": "general_public",
+    "patient_specific": false,
+    "urgent_symptoms_present": false
+  },
+  "routing_policy": "medical_evidence_only"
+}</code></pre>
+          </div>
+          <p>This minimal request shape is not interesting because it is complex. It is useful because it narrows interpretation. A route like <code>medical_evidence_only</code> makes the system intent visible: answer only within the evidence review lane, and do not perform personalized assessment even if the generation model could produce fluent text. That is the kind of constraint that matters more than a sophisticated prompt.</p>
+          <p>Finally, the risk boundary should distinguish between “can answer carefully” and “should answer at all.” General literature summaries, definitions of study terms, or comparative descriptions of published recommendations can be appropriate if retrieval succeeds. Symptom triage, medication dosing, interpretation of individual reports, and urgent situations should shift to refusal or direct escalation. This is not because those tasks are linguistically harder. It is because the harm of an incorrect or overconfident answer is qualitatively different. The architecture review only makes sense if that difference is honored up front.</p>
+        </section>
+
+        <section id="retrieval">
+          <div class="section-head">
+            <div>
+              <p class="protocol-tag">Protocol 02</p>
+            </div>
+            <h2>Source Selection And Retrieval</h2>
+          </div>
+          <p class="lead">Once the boundary is defined, the next safety question is not “which model answers best?” It is “what is the model allowed to see, and how reliably can the system recover the right fragments from that corpus?” In this project, the README points to medical PDFs, guidelines, and PubMed-style references, plus PDF extraction, cleanup, chunking, embeddings, Qdrant indexing, and reranking. That is a reasonable safety-oriented retrieval spine if each stage is treated as a control point rather than a throughput step.</p>
+          <p>Source selection is the first control point. “Trusted sources” has to mean more than documents that look formal. A safe corpus needs repository-level discipline: guideline publisher, publication date, document version, document type, and whether the material is normative guidance, review literature, trial evidence, or background explanation. Without those distinctions, retrieval can surface a perfectly relevant-looking passage that is simply the wrong kind of authority for the question. For example, a narrative review may explain a topic clearly but should not silently outrank a current guideline when the user asks what is recommended in practice.</p>
+          <p>PDF extraction via PyMuPDF is another place where medical systems deserve extra skepticism. Clinical tables, footnotes, multi-column layouts, figure captions, and superscript references do not survive naive extraction cleanly. If the ingestion layer strips section titles, detaches recommendation strength qualifiers, or merges headers into paragraph text, the downstream embedding index will faithfully preserve the wrong unit. The architecture therefore depends on cleanup rules that preserve provenance fields and document structure well enough that a retrieved chunk still tells the answer layer what it is, where it came from, and how it should be interpreted.</p>
+          <p>Chunking has to balance semantic completeness against retrieval precision. Chunks that are too short lose recommendation context: the sentence with the action survives, but the qualifiers on population, contraindication, or evidence level do not. Chunks that are too long tend to over-bundle related ideas and make reranking less crisp. In medical evidence systems, the right chunk is rarely just “N tokens.” It is more often a structurally coherent excerpt bounded by headings, list items, recommendation bullets, or abstract sections, with metadata that makes later citation defensible.</p>
+          <figure>
+            <svg viewBox="0 0 1180 520" role="img" aria-labelledby="loom-title loom-desc">
+              <title id="loom-title">Citation loom diagram</title>
+              <desc id="loom-desc">A structured flow from source repositories through retrieval, ranking, evidence snippets, answer composition, and a refusal gate.</desc>
+              <rect x="10" y="10" width="1160" height="500" fill="#ffffff" stroke="#d7d7d7" stroke-width="2"/>
+              <text x="48" y="48" fill="#111111" font-size="20" font-family="IBM Plex Sans, sans-serif" font-weight="600">Citation Loom</text>
+              <text x="48" y="76" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">Evidence moves left to right, but refusal remains attached to the final composition step.</text>
+
+              <rect x="46" y="116" width="188" height="86" rx="6" fill="#f5f5f5" stroke="#111111" stroke-width="2"/>
+              <rect x="46" y="218" width="188" height="86" rx="6" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+              <rect x="46" y="320" width="188" height="86" rx="6" fill="#f5f5f5" stroke="#111111" stroke-width="2"/>
+              <text x="70" y="148" fill="#111111" font-size="16" font-family="IBM Plex Sans, sans-serif" font-weight="600">Guideline Repositories</text>
+              <text x="70" y="172" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">Versioned practice documents</text>
+              <text x="70" y="250" fill="#111111" font-size="16" font-family="IBM Plex Sans, sans-serif" font-weight="600">Medical PDFs</text>
+              <text x="70" y="274" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">Structured extraction required</text>
+              <text x="70" y="352" fill="#111111" font-size="16" font-family="IBM Plex Sans, sans-serif" font-weight="600">PubMed-Style References</text>
+              <text x="70" y="376" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">Abstracts and linked evidence</text>
+
+              <rect x="316" y="164" width="178" height="190" rx="8" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+              <text x="343" y="198" fill="#111111" font-size="17" font-family="IBM Plex Sans, sans-serif" font-weight="600">Retrieval Stack</text>
+              <text x="343" y="230" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">extract</text>
+              <text x="343" y="255" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">clean</text>
+              <text x="343" y="280" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">chunk</text>
+              <text x="343" y="305" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">embed</text>
+              <text x="343" y="330" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">search in Qdrant</text>
+
+              <rect x="572" y="152" width="162" height="214" rx="8" fill="#f5f5f5" stroke="#111111" stroke-width="2"/>
+              <text x="597" y="188" fill="#111111" font-size="17" font-family="IBM Plex Sans, sans-serif" font-weight="600">Ranking</text>
+              <text x="597" y="222" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">metadata filters</text>
+              <text x="597" y="247" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">semantic relevance</text>
+              <text x="597" y="272" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">reranker pass</text>
+              <text x="597" y="297" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">authority ordering</text>
+              <text x="597" y="322" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">conflict detection</text>
+
+              <rect x="804" y="134" width="160" height="250" rx="8" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+              <text x="829" y="170" fill="#111111" font-size="17" font-family="IBM Plex Sans, sans-serif" font-weight="600">Evidence Snippets</text>
+              <rect x="826" y="198" width="116" height="34" fill="#ececec" stroke="#111111"/>
+              <rect x="826" y="246" width="116" height="34" fill="#f5f5f5" stroke="#111111"/>
+              <rect x="826" y="294" width="116" height="34" fill="#ececec" stroke="#111111"/>
+              <text x="846" y="220" fill="#111111" font-size="12" font-family="IBM Plex Sans, sans-serif">chunk + citation</text>
+              <text x="847" y="268" fill="#111111" font-size="12" font-family="IBM Plex Sans, sans-serif">chunk + qualifier</text>
+              <text x="844" y="316" fill="#111111" font-size="12" font-family="IBM Plex Sans, sans-serif">chunk + date</text>
+
+              <rect x="1008" y="132" width="128" height="112" rx="8" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+              <text x="1032" y="166" fill="#111111" font-size="17" font-family="IBM Plex Sans, sans-serif" font-weight="600">Answer</text>
+              <text x="1020" y="192" fill="#5f5f5f" font-size="12" font-family="IBM Plex Sans, sans-serif">constrained composition</text>
+              <text x="1020" y="212" fill="#5f5f5f" font-size="12" font-family="IBM Plex Sans, sans-serif">claim to snippet mapping</text>
+
+              <rect x="1008" y="268" width="128" height="116" rx="8" fill="#0a0a0a" stroke="#0a0a0a" stroke-width="2"/>
+              <text x="1033" y="304" fill="#f5f5f5" font-size="17" font-family="IBM Plex Sans, sans-serif" font-weight="600">Refusal Gate</text>
+              <text x="1030" y="330" fill="#f5f5f5" font-size="13" font-family="IBM Plex Sans, sans-serif">low support</text>
+              <text x="1030" y="352" fill="#f5f5f5" font-size="13" font-family="IBM Plex Sans, sans-serif">unsafe intent</text>
+
+              <path d="M234 160 C270 170, 280 182, 316 198" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M234 262 C270 262, 280 258, 316 256" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M234 364 C270 354, 280 338, 316 314" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M494 258 L572 258" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M734 258 L804 258" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M964 222 L1008 188" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M964 330 L1008 326" fill="none" stroke="#111111" stroke-width="2.5" stroke-dasharray="7 6"/>
+            </svg>
+            <figcaption><span class="figure-title">Figure 1</span>The citation loom is the core safety flow: source repositories feed retrieval, ranking, and snippet selection, but the refusal gate remains connected to answer composition so unsupported output does not become fluent guesswork.</figcaption>
+          </figure>
+          <p>Embeddings and Qdrant indexing are necessary infrastructure, but they are not enough by themselves. Dense retrieval is good at recovering semantically similar material; it is not inherently good at deciding whether the material is authoritative or specific enough for the question. That is why the README’s mention of reranking matters. In a medical setting, reranking should include metadata-aware preference for guideline material, population fit, and evidence freshness where the corpus contains multiple versions.</p>
+          <p>A good retrieval layer also has to preserve abstention. Teams often over-optimize for always returning something, because empty retrieval looks like failure in demos. Here, empty or weak retrieval is exactly the signal the later refusal layer needs. If the index is tuned to return vaguely related passages under all conditions, answer generation will inherit ambiguity and citation formatting will only make the result look more legitimate. Precision matters more than coverage once the product promises safety-aware medical answers.</p>
+          <div class="code-block">
+            <pre><code>{
+  "source_policy": {
+    "allow": ["guideline_pdf", "medical_pdf", "pubmed_reference"],
+    "require_metadata": ["title", "year", "section", "source_type"],
+    "prefer": ["guideline_pdf"],
+    "reject_if_missing_text_quality": true
+  }
+}</code></pre>
+          </div>
+          <p>This kind of manifest is useful because it turns “trusted source” into an operational rule. The safer retrieval architecture is boring in the right ways: explicit allowlists, version tracking, metadata preservation, and ranking logic that can explain why a chunk was surfaced. Medical question answering should be inspectable. If an operator cannot tell which document, section, and passage supported a sentence, the system may still feel polished, but it is no longer behaving like an evidence assistant.</p>
+          <p>The final point in retrieval is that ranking should be allowed to surface conflict rather than forcing an artificial consensus. Medical literature does not always agree, and guideline documents can diverge by jurisdiction or date. A well-designed evidence system should be able to retrieve that tension and pass it forward as structured uncertainty. Suppressing disagreement to produce a smoother answer is not a user benefit in this domain. It is a distortion. Retrieval is safe when it returns enough context for the answer layer to say either “here is the supported summary” or “the evidence base does not support a clean answer for this question.”</p>
+        </section>
+
+        <section id="assembly">
+          <div class="section-head">
+            <div>
+              <p class="protocol-tag">Protocol 03</p>
+            </div>
+            <h2>Answer Assembly And Citation Behavior</h2>
+          </div>
+          <p class="lead">The README says answer generation is constrained to retrieved context. That is the right intent, but in practice constraint has to survive the last mile of composition, where many otherwise careful systems loosen their standards and let a generation model fill gaps between snippets. This section matters because fluent language is where unsupported inference becomes hardest for users to notice.</p>
+          <p>The safest answer pattern is claim-by-claim assembly rather than general summarization. Each substantive statement should be traceable to one or more retrieved snippets, with citations attached at the point of use. That does not mean every sentence must be awkward or overburdened. It means the system should know, internally, whether a sentence is grounded, inferred from multiple grounded snippets, or unsupported. Only the first two categories belong in a user answer, and the second category should be narrow: synthesis is acceptable when the combination is explicit and faithful to the retrieved evidence, not when the model invents connective tissue that sounds plausible.</p>
+          <p>Citation behavior is therefore more than formatting. A numbered citation list at the bottom of a response is not enough if the mapping between claims and sources is loose. In medical contexts, the user must be able to tell which recommendation came from which kind of document, and whether the answer is quoting a guideline statement, summarizing several studies, or merely describing background context. A citation that points to a whole PDF after only one chunk was retrieved is not transparent. It gives the impression of broad support without showing the actual evidentiary path.</p>
+          <p>That is why evidence snippets should carry structured fields into generation: document title, section heading, year or version marker, and source type at minimum. The generation layer should not receive raw text alone. It should receive evidence objects. Once the model sees text without provenance, the temptation to produce elegant but ambiguous synthesis increases. Once it sees provenance objects, the system can ask the model to compose inside a frame that already knows where each claim came from.</p>
+          <div class="callout">
+            <strong>Citation Discipline</strong>
+            <p>A citation is not a decoration added after writing. It is a contract that the sentence would be materially weaker or absent if that supporting evidence were removed.</p>
+          </div>
+          <p>Another issue is overstatement. Even with trusted sources, the system should not silently convert a population-level statement into a patient-specific implication. A retrieved guideline may say that a certain intervention is recommended under specific conditions. The assistant can report that recommendation as published, with qualifiers intact. It should not translate that into “this applies to you,” because that step requires patient context and clinical judgment outside the stated boundary. Good answer assembly preserves the limits already present in the source material.</p>
+          <p>Uncertainty also belongs in the answer body, not only in a disclaimer footer. If the highest-ranked evidence is older, conflicting, indirect, or sparse, the answer should say so explicitly. Otherwise the system creates a confidence inversion: the weaker the evidence, the more users need a clean signal that the answer is conditional. Medical assistants often fail here by adding one generic caution at the end while presenting the main text in a decisive tone. That is not a minor stylistic flaw. It changes how users interpret risk.</p>
+          <div class="code-block">
+            <pre><code>def compose_answer(question, evidence):
+    if not evidence or evidence.support_is_weak():
+        return refuse("insufficient_evidence")
+
+    return {
+        "summary": build_grounded_summary(question, evidence),
+        "citations": attach_claim_level_citations(evidence),
+        "uncertainty": render_known_limits(evidence),
+        "medical_boundary": "Not for diagnosis or personal treatment decisions."
+    }</code></pre>
+          </div>
+          <p>This sketch is intentionally plain. The important detail is that refusal remains available at composition time. Retrieval may have returned some text, but “some text exists” is not the same as “the answer is supportable.” The composition layer should still be able to decline, especially when the retrieved snippets are topically related but do not directly answer the question or when the evidence base is internally inconsistent.</p>
+          <p>The model named in the README, Gemini Flash, is not the main safety story here. Any generator that is fast and coherent can still over-compress or smooth over conflict. The relevant architectural question is whether the model is forced to operate inside a narrow answer schema with explicit citation and refusal channels.</p>
+          <p>The answer should also resist laundering citations through secondary explanation. For example, if a retrieved chunk says evidence is limited in a subgroup, the model should not write an expansive educational paragraph about that subgroup and then cite the limited passage as if it supported all of the added explanation. That common maneuver is especially tempting in medical writing because background knowledge sounds helpful. In this architecture, background knowledge that is not retrieved context should simply remain unused.</p>
+          <p>Finally, the assistant should prefer a shorter answer over a complete-looking one. In safety-sensitive domains, verbosity can create false comprehensiveness. A disciplined response that states the supported point, names the source type, notes the limits, and declines to extend beyond the evidence is often the correct product behavior. Users may sometimes want a longer answer; that does not mean the system should infer beyond what the evidence path can justify.</p>
+        </section>
+
+        <section id="refusal">
+          <div class="section-head">
+            <div>
+              <p class="protocol-tag">Protocol 04</p>
+            </div>
+            <h2>Refusal And Escalation Cases</h2>
+          </div>
+          <p class="lead">The README treats refusal behavior as a product feature. That is the right instinct and it deserves emphasis. In a medical evidence assistant, refusal is not what happens when the system is weak. Refusal is what demonstrates that the system understands its own role. A product that never refuses is usually not more capable. It is simply less honest about its operating boundary.</p>
+          <p>There are at least four refusal classes that should exist independently. The first is evidence insufficiency: no relevant chunks, low-quality extraction, stale material, or unresolved conflicts. The second is task mismatch: the user asks for a diagnosis, treatment recommendation, dose adjustment, or interpretation of personal data rather than an evidence summary. The third is acuity: the user mentions red-flag symptoms or urgent deterioration. The fourth is procedural ambiguity: the request is phrased in a way that looks educational on the surface but requires patient-specific inference once unpacked. Safe systems should not collapse all four classes into a generic “I cannot help with that” message, because each class suggests a different next step.</p>
+          <figure>
+            <svg viewBox="0 0 1180 700" role="img" aria-labelledby="tree-title tree-desc">
+              <title id="tree-title">Refusal tree diagram</title>
+              <desc id="tree-desc">A decision tree for safe refusal and escalation in a medical evidence question-answering assistant.</desc>
+              <rect x="10" y="10" width="1160" height="680" fill="#ffffff" stroke="#d7d7d7" stroke-width="2"/>
+              <text x="48" y="48" fill="#111111" font-size="20" font-family="IBM Plex Sans, sans-serif" font-weight="600">Refusal Tree</text>
+              <text x="48" y="76" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">Unsafe intent and weak evidence diverge into different messages, but both stop unsupported answers.</text>
+
+              <rect x="420" y="96" width="340" height="86" rx="8" fill="#f5f5f5" stroke="#111111" stroke-width="2"/>
+              <text x="517" y="126" fill="#111111" font-size="17" font-family="IBM Plex Sans, sans-serif" font-weight="600">Incoming Question</text>
+              <text x="428" y="148" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">Intent, urgency, and retrieval scope check</text>
+              <text x="462" y="168" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">before entering answer path</text>
+
+              <rect x="158" y="254" width="264" height="86" rx="8" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+              <text x="168" y="280" fill="#111111" font-size="15" font-family="IBM Plex Sans, sans-serif" font-weight="600">Personal diagnosis or dosing?</text>
+              <text x="168" y="300" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">If yes, refuse and redirect</text>
+              <text x="168" y="320" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">to clinician</text>
+
+              <rect x="458" y="254" width="264" height="86" rx="8" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+              <text x="478" y="280" fill="#111111" font-size="15" font-family="IBM Plex Sans, sans-serif" font-weight="600">Urgent red-flag symptoms?</text>
+              <text x="468" y="300" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">If yes, escalate immediately</text>
+              <text x="468" y="320" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">to emergency care</text>
+
+              <rect x="758" y="254" width="264" height="86" rx="8" fill="#ffffff" stroke="#111111" stroke-width="2"/>
+              <text x="778" y="280" fill="#111111" font-size="15" font-family="IBM Plex Sans, sans-serif" font-weight="600">Evidence retrieved cleanly?</text>
+              <text x="768" y="300" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">If no, refuse for low support</text>
+              <text x="768" y="320" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">and weak retrieval</text>
+
+              <rect x="56" y="452" width="268" height="110" rx="8" fill="#0a0a0a" stroke="#0a0a0a" stroke-width="2"/>
+              <text x="98" y="486" fill="#f5f5f5" font-size="15" font-family="IBM Plex Sans, sans-serif" font-weight="600">Refuse: Personalized Care</text>
+              <text x="68" y="510" fill="#f5f5f5" font-size="13" font-family="IBM Plex Sans, sans-serif">Explain boundary and suggest</text>
+              <text x="68" y="530" fill="#f5f5f5" font-size="13" font-family="IBM Plex Sans, sans-serif">licensed clinician review</text>
+
+              <rect x="370" y="452" width="268" height="110" rx="8" fill="#0a0a0a" stroke="#0a0a0a" stroke-width="2"/>
+              <text x="398" y="486" fill="#f5f5f5" font-size="15" font-family="IBM Plex Sans, sans-serif" font-weight="600">Escalate: Urgent Situation</text>
+              <text x="382" y="510" fill="#f5f5f5" font-size="13" font-family="IBM Plex Sans, sans-serif">Direct user to emergency or</text>
+              <text x="382" y="530" fill="#f5f5f5" font-size="13" font-family="IBM Plex Sans, sans-serif">immediate local medical care</text>
+
+              <rect x="684" y="452" width="268" height="110" rx="8" fill="#0a0a0a" stroke="#0a0a0a" stroke-width="2"/>
+              <text x="720" y="486" fill="#f5f5f5" font-size="15" font-family="IBM Plex Sans, sans-serif" font-weight="600">Refuse: Weak Evidence</text>
+              <text x="696" y="510" fill="#f5f5f5" font-size="13" font-family="IBM Plex Sans, sans-serif">State that retrieved support is</text>
+              <text x="696" y="530" fill="#f5f5f5" font-size="13" font-family="IBM Plex Sans, sans-serif">insufficient for a reliable answer</text>
+
+              <rect x="998" y="452" width="172" height="110" rx="8" fill="#f5f5f5" stroke="#111111" stroke-width="2"/>
+              <text x="1020" y="486" fill="#111111" font-size="15" font-family="IBM Plex Sans, sans-serif" font-weight="600">Proceed</text>
+              <text x="1006" y="510" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">Evidence summary only</text>
+              <text x="1012" y="530" fill="#5f5f5f" font-size="13" font-family="IBM Plex Sans, sans-serif">with citations and limits</text>
+
+              <path d="M590 182 L590 254" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M590 218 C490 218, 340 234, 290 254" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M590 218 C690 218, 840 234, 890 254" fill="none" stroke="#111111" stroke-width="2.5"/>
+
+              <path d="M290 340 L190 452" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M590 340 L504 452" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M890 340 L818 452" fill="none" stroke="#111111" stroke-width="2.5"/>
+              <path d="M890 340 L1084 452" fill="none" stroke="#111111" stroke-width="2.5" stroke-dasharray="7 6"/>
+
+              <text x="228" y="428" fill="#5f5f5f" font-size="12" font-family="IBM Plex Sans, sans-serif">yes</text>
+              <text x="530" y="428" fill="#5f5f5f" font-size="12" font-family="IBM Plex Sans, sans-serif">yes</text>
+              <text x="842" y="428" fill="#5f5f5f" font-size="12" font-family="IBM Plex Sans, sans-serif">no</text>
+              <text x="970" y="428" fill="#5f5f5f" font-size="12" font-family="IBM Plex Sans, sans-serif">yes</text>
+            </svg>
+            <figcaption><span class="figure-title">Figure 2</span>The refusal tree separates personalized-care requests, urgent situations, and low-support retrieval failures. A safe assistant does not flatten these into one generic denial because each path implies a different user instruction.</figcaption>
+          </figure>
+          <p>Urgency deserves particular discipline. If a question mentions possible emergency symptoms, the assistant should not hide behind a long explanation about evidence limitations. It should shift immediately to concise escalation language. In practical terms, that means brief direction to local emergency services or urgent clinical care rather than a mini-essay. High-risk scenarios are one place where less text is safer text. The goal is not to educate the user on the full decision tree at that moment. The goal is to stop the interaction from being mistaken for timely medical guidance.</p>
+          <p>For non-urgent but personalized requests, the refusal should explain the specific boundary. Saying “I am not able to answer that” is weaker than saying the assistant can summarize published evidence but cannot assess an individual’s symptoms, treatment plan, or medical records. Specific refusal language is not merely friendlier. It teaches users how the tool is meant to be used, which improves future request quality and lowers pressure on the generation layer to improvise.</p>
+          <p>Low-support refusal is different again. Here the tool should indicate that it could not retrieve enough reliable evidence from its approved sources to answer responsibly. That message protects against a dangerous user assumption: that the absence of an answer means the topic has no evidence. More often, it means the system’s source set, extraction quality, or ranking outcome did not justify a response. The refusal should therefore remain epistemically precise. It is the system declining to answer, not the system declaring the literature empty.</p>
+          <div class="code-block">
+            <pre><code>def refusal_route(request, evidence):
+    if request.user_context.get("urgent_symptoms_present"):
+        return "escalate_urgent_care"
+    if request.user_context.get("patient_specific"):
+        return "refuse_personalized_medical_advice"
+    if not evidence or evidence.support_is_weak():
+        return "refuse_insufficient_evidence"
+    return "answer_with_citations"</code></pre>
+          </div>
+          <p>The important architectural point is that refusal routing can occur both before and after retrieval. Some questions should be declined on intent alone. Others only become clear after the evidence layer returns weak or conflicting support. Systems that put refusal only at the front gate miss the latter class; systems that put refusal only at the end waste time retrieving for questions that should never have entered the answer path. The safest design uses both checkpoints.</p>
+          <p>One final concern is pressure from user persistence. Medical assistants are often probed with repeated rephrasing after a refusal. The model should not interpret repeated pressure as a reason to offer partial advice. If anything, repeated attempts after a boundary decision are a reason to keep the output shorter and more consistent. Safety policies that degrade under conversational persistence are not policies. They are suggestions the model may ignore when nudged hard enough.</p>
+          <p>The practical test for this architecture is simple: when evidence is weak or the request is unsafe, does the product remain helpful without becoming permissive? Helpfulness here means clear explanation, source-conscious limits, and actionable escalation where appropriate. It does not mean stretching the answer until the user feels satisfied. In medical systems, refusal quality is part of answer quality.</p>
+        </section>
+
+        <section id="close">
+          <div class="section-head">
+            <div>
+              <p class="protocol-tag">Operational Close</p>
+            </div>
+            <h2>Release Conditions</h2>
+          </div>
+          <p class="lead">The architecture described in the project README is directionally sound for a narrow medical evidence assistant, but only if the product remains strict about what counts as support and what counts as a refusal case. The safest interpretation of this design is not “medical AI that answers carefully.” It is “a scoped evidence interface that sometimes answers and often declines for good reasons.”</p>
+          <ul class="closing-list">
+            <li>Keep the mandate narrow: evidence summary and citation, not diagnosis, dosing, or patient-specific interpretation.</li>
+            <li>Treat source selection as a governance layer: document type, version, date, and provenance should survive ingestion into the index.</li>
+            <li>Require claim-level grounding during answer assembly so citations explain why a sentence exists, not just where the page came from.</li>
+            <li>Preserve refusal as a primary output, with separate paths for urgent escalation, personalized care requests, and insufficient evidence.</li>
+            <li>Audit the FastAPI contract for structured routing fields so unsafe intent is caught before and after retrieval, not after free-form text generation.</li>
+          </ul>
+          <p class="footer-note">If those conditions hold, the assistant can occupy a useful and defensible role: a controlled gateway into approved medical literature, with explicit boundaries and visible limits. If those conditions slip, the same interface will still sound polished, but it will stop behaving like a safety-aware evidence system.</p>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
