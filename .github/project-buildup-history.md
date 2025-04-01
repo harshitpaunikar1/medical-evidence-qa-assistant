@@ -40,3 +40,7 @@
 
 - Task summary: Closer to the end, I was mostly tightening things up instead of inventing new scope. The job for the day was to add the minimum JavaScript interactions needed to make the flow understandable so the final result looked a bit more complete. The middle part always takes longer than it should, mostly becuase one fix usually reveals two more things to clean up. The tricky bit was making the system sound realistic without pretending every edge case was solved.
 - Deliverable: Ended the day with working interactions in hand, plus a few side notes on what still needed fixing later. It was not super polished, just stable enough that I felt okay moving forward.
+## 2025-04-01 - Day 9: Interactions
+
+- Task summary: After stepping away for a bit, came back and re-ran the plots with better axis labels and a more readable color palette.
+- Deliverable: Good enough to not be embarrassing.
