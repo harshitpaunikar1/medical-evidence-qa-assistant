@@ -1,0 +1,35 @@
+{
+  "project_name": "Medical Evidence Q&A Assistant",
+  "status": "done",
+  "completion_percent": 100,
+  "confidence_score": 90,
+  "last_agent": "Codex GPT-5 Production Engine",
+  "last_updated": "2026-04-26T09:20:38Z",
+  "files_created": [
+    "index.html",
+    "style.css",
+    "app.js",
+    "tracker.json",
+    "handoff.md",
+    "diagrams.md",
+    "assets/",
+    "assets/architecture-overview.svg",
+    "assets/workflow-overview.svg",
+    "assets/evidence-gap-map.svg"
+  ],
+  "completed_sections": [
+    "Headline and Review Deck",
+    "Risk Boundary",
+    "Source Selection and Retrieval",
+    "Citation Loom Diagram",
+    "Answer Assembly and Citation Behavior",
+    "Refusal and Escalation Cases",
+    "Refusal Tree Diagram",
+    "Operational Close"
+  ],
+  "pending_sections": [],
+  "blockers": [],
+  "next_best_task": "Move to `npa-risk-prediction/index.html` and keep the next rewrite visually distinct from this clinical review rather than reusing its protocol layout or tone.",
+  "quality_score": 93,
+  "publish_ready": true
+}
